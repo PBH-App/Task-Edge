@@ -211,8 +211,48 @@
 
   .task-meta {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
   }
+
+  .due-date {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+
+  .due-date input[type="date"] {
+    border: 1px solid var(--paper-line);
+    background: var(--card-bg);
+    color: var(--ink-soft);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .due-date input[type="date"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .due-date.overdue { color: var(--high); font-weight: 600; }
+  .due-date.overdue input[type="date"] { color: var(--high); border-color: var(--high-bg); }
+
+  .due-date.today { color: var(--medium); font-weight: 600; }
+  .due-date.today input[type="date"] { color: var(--medium); border-color: var(--medium-bg); }
+
+  .clear-date {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 2px;
+    line-height: 1;
+  }
+  .clear-date:hover { color: var(--danger); }
 
   .priority-select {
     appearance: none;
@@ -462,6 +502,32 @@
         var meta = document.createElement('div');
         meta.className = 'task-meta';
 
+        var dueWrap = document.createElement('div');
+        dueWrap.className = 'due-date';
+        var dueStatus = getDueStatus(t.dueDate, t.done);
+        if (dueStatus) dueWrap.classList.add(dueStatus);
+
+        var dueInput = document.createElement('input');
+        dueInput.type = 'date';
+        dueInput.setAttribute('aria-label', 'Due date');
+        if (t.dueDate) dueInput.value = t.dueDate;
+        dueInput.addEventListener('change', function () {
+          updateDueDate(t.id, dueInput.value || null);
+        });
+        dueWrap.appendChild(dueInput);
+
+        if (t.dueDate) {
+          var clearDate = document.createElement('button');
+          clearDate.type = 'button';
+          clearDate.className = 'clear-date';
+          clearDate.setAttribute('aria-label', 'Clear due date');
+          clearDate.textContent = '×';
+          clearDate.addEventListener('click', function () {
+            updateDueDate(t.id, null);
+          });
+          dueWrap.appendChild(clearDate);
+        }
+
         var prioritySelect = document.createElement('select');
         prioritySelect.className = 'priority-select';
         prioritySelect.setAttribute('aria-label', 'Priority');
@@ -477,6 +543,7 @@
           updatePriority(t.id, prioritySelect.value);
         });
 
+        meta.appendChild(dueWrap);
         meta.appendChild(prioritySelect);
 
         li.appendChild(row);
@@ -490,7 +557,7 @@
   }
 
   function addTask(text) {
-    tasks.unshift({ id: uid(), text: text, done: false, priority: 'Medium' });
+    tasks.unshift({ id: uid(), text: text, done: false, priority: 'Medium', dueDate: null });
     saveTasks();
     render();
   }
@@ -503,6 +570,21 @@
   function updatePriority(id, priority) {
     var t = tasks.find(function (x) { return x.id === id; });
     if (t) { t.priority = priority; saveTasks(); render(); }
+  }
+
+  function updateDueDate(id, dueDate) {
+    var t = tasks.find(function (x) { return x.id === id; });
+    if (t) { t.dueDate = dueDate; saveTasks(); render(); }
+  }
+
+  function getDueStatus(dueDate, done) {
+    if (!dueDate || done) return null;
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var due = new Date(dueDate + 'T00:00:00');
+    if (due < today) return 'overdue';
+    if (due.getTime() === today.getTime()) return 'today';
+    return null;
   }
 
   function updateText(id, newText) {
@@ -542,7 +624,10 @@
   });
 
   tasks = loadTasks();
-  tasks.forEach(function (t) { if (!t.priority) t.priority = 'Medium'; });
+  tasks.forEach(function (t) {
+    if (!t.priority) t.priority = 'Medium';
+    if (t.dueDate === undefined) t.dueDate = null;
+  });
   setToday();
   render();
 })();
