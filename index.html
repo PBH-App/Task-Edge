@@ -254,6 +254,93 @@
   }
   .clear-date:hover { color: var(--danger); }
 
+  .comments-toggle {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .comments-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 8px;
+    margin-top: 2px;
+    border-top: 1px dashed var(--paper-line);
+  }
+
+  .comment-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .comment-text {
+    flex: 1;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  .comment-time {
+    display: block;
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 1px;
+  }
+
+  .comment-delete {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+  .comment-delete:hover { color: var(--danger); }
+
+  .comment-add {
+    display: flex;
+    gap: 6px;
+  }
+
+  .comment-add input {
+    flex: 1;
+    min-width: 0;
+    background: var(--paper);
+    border: 1px solid var(--paper-line);
+    border-radius: 3px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    color: var(--ink);
+  }
+
+  .comment-add input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .comment-add button {
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: none;
+    border-radius: 3px;
+    padding: 0 12px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .comment-add button:hover { background: var(--accent); color: var(--card-bg); }
+
   .priority-select {
     appearance: none;
     -webkit-appearance: none;
@@ -407,6 +494,7 @@
   var filterBtns = document.querySelectorAll('.filters button');
   var currentFilter = 'all';
   var tasks = [];
+  var expandedComments = {};
 
   function loadTasks() {
     try {
@@ -548,6 +636,81 @@
 
         li.appendChild(row);
         li.appendChild(meta);
+
+        var commentCount = (t.comments || []).length;
+        var toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'comments-toggle';
+        toggle.textContent = commentCount > 0
+          ? 'Comments (' + commentCount + ')'
+          : 'Add comment';
+        toggle.addEventListener('click', function () {
+          expandedComments[t.id] = !expandedComments[t.id];
+          render();
+        });
+        li.appendChild(toggle);
+
+        if (expandedComments[t.id]) {
+          var panel = document.createElement('div');
+          panel.className = 'comments-panel';
+
+          (t.comments || []).forEach(function (c) {
+            var item = document.createElement('div');
+            item.className = 'comment-item';
+
+            var body = document.createElement('div');
+            body.className = 'comment-text';
+            var textSpan = document.createElement('span');
+            textSpan.textContent = c.text;
+            var timeSpan = document.createElement('span');
+            timeSpan.className = 'comment-time';
+            timeSpan.textContent = formatTimestamp(c.ts);
+            body.appendChild(textSpan);
+            body.appendChild(timeSpan);
+
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'comment-delete';
+            del.setAttribute('aria-label', 'Delete comment');
+            del.textContent = '×';
+            del.addEventListener('click', function () {
+              removeComment(t.id, c.id);
+            });
+
+            item.appendChild(body);
+            item.appendChild(del);
+            panel.appendChild(item);
+          });
+
+          var addRow = document.createElement('div');
+          addRow.className = 'comment-add';
+          var commentInput = document.createElement('input');
+          commentInput.type = 'text';
+          commentInput.placeholder = 'Write a comment…';
+          commentInput.maxLength = 300;
+          var addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.textContent = 'Post';
+
+          function submitComment() {
+            var val = commentInput.value.trim();
+            if (val) {
+              addComment(t.id, val);
+              commentInput.value = '';
+            }
+          }
+          addBtn.addEventListener('click', submitComment);
+          commentInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); submitComment(); }
+          });
+
+          addRow.appendChild(commentInput);
+          addRow.appendChild(addBtn);
+          panel.appendChild(addRow);
+
+          li.appendChild(panel);
+        }
+
         listEl.appendChild(li);
       });
     }
@@ -557,7 +720,7 @@
   }
 
   function addTask(text) {
-    tasks.unshift({ id: uid(), text: text, done: false, priority: 'Medium', dueDate: null });
+    tasks.unshift({ id: uid(), text: text, done: false, priority: 'Medium', dueDate: null, comments: [] });
     saveTasks();
     render();
   }
@@ -585,6 +748,30 @@
     if (due < today) return 'overdue';
     if (due.getTime() === today.getTime()) return 'today';
     return null;
+  }
+
+  function addComment(taskId, text) {
+    var t = tasks.find(function (x) { return x.id === taskId; });
+    if (!t) return;
+    if (!t.comments) t.comments = [];
+    t.comments.push({ id: uid(), text: text, ts: Date.now() });
+    saveTasks();
+    render();
+  }
+
+  function removeComment(taskId, commentId) {
+    var t = tasks.find(function (x) { return x.id === taskId; });
+    if (!t || !t.comments) return;
+    t.comments = t.comments.filter(function (c) { return c.id !== commentId; });
+    saveTasks();
+    render();
+  }
+
+  function formatTimestamp(ts) {
+    if (!ts) return '';
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   }
 
   function updateText(id, newText) {
@@ -627,6 +814,7 @@
   tasks.forEach(function (t) {
     if (!t.priority) t.priority = 'Medium';
     if (t.dueDate === undefined) t.dueDate = null;
+    if (!Array.isArray(t.comments)) t.comments = [];
   });
   setToday();
   render();
