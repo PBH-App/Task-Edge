@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Ledger — Task List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F7F4EC;
+    --paper-line: #DAD3C0;
+    --ink: #26241E;
+    --ink-soft: #6B6656;
+    --accent: #33469B;
+    --accent-soft: #DDE1F2;
+    --mark: #E8B923;
+    --done: #8C8672;
+    --danger: #A5432F;
+    --card-bg: #FFFFFF;
+    --shadow: rgba(38, 36, 30, 0.08);
+    --high: #A5432F;
+    --high-bg: #F5E1DC;
+    --medium: #92730F;
+    --medium-bg: #F5EBCB;
+    --low: #3C6E4F;
+    --low-bg: #DCEBE1;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #1D1B17;
+      --paper-line: #3A362C;
+      --ink: #EDE8DA;
+      --ink-soft: #A39D89;
+      --accent: #8C9EEB;
+      --accent-soft: #2B2F4D;
+      --mark: #E8B923;
+      --done: #6B6656;
+      --card-bg: #262319;
+      --shadow: rgba(0, 0, 0, 0.35);
+      --high: #E8887A;
+      --high-bg: #3B2621;
+      --medium: #E8C767;
+      --medium-bg: #3A331D;
+      --low: #8FC5A3;
+      --low-bg: #223229;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #1D1B17;
+    --paper-line: #3A362C;
+    --ink: #EDE8DA;
+    --ink-soft: #A39D89;
+    --accent: #8C9EEB;
+    --accent-soft: #2B2F4D;
+    --mark: #E8B923;
+    --done: #6B6656;
+    --card-bg: #262319;
+    --shadow: rgba(0, 0, 0, 0.35);
+    --high: #E8887A;
+    --high-bg: #3B2621;
+    --medium: #E8C767;
+    --medium-bg: #3A331D;
+    --low: #8FC5A3;
+    --low-bg: #223229;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent,
+        transparent 35px,
+        var(--paper-line) 35px,
+        var(--paper-line) 36px
+      ),
+      var(--paper);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px 60px;
+  }
+
+  .board {
+    width: 100%;
+    max-width: 460px;
+  }
+
+  header {
+    padding-bottom: 18px;
+    margin-bottom: 22px;
+    border-bottom: 2px solid var(--ink);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-optical-sizing: auto;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .date {
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+
+  form.add-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 22px;
+  }
+
+  .add-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--card-bg);
+    border: 1.5px solid var(--paper-line);
+    border-radius: 3px;
+    padding: 11px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .add-row input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .add-row button {
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 3px;
+    padding: 0 18px;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .add-row button:hover { background: var(--accent); }
+  .add-row button:focus-visible,
+  .add-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .filters {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+
+  .filters button {
+    background: none;
+    border: 1px solid var(--paper-line);
+    color: var(--ink-soft);
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .filters button.active {
+    background: var(--ink);
+    color: var(--paper);
+    border-color: var(--ink);
+  }
+
+  ul.tasks {
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  li.task {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--paper-line);
+    border-radius: 4px;
+    padding: 12px 12px;
+    box-shadow: 0 1px 2px var(--shadow);
+  }
+
+  li.task.done { opacity: 0.6; }
+
+  .task-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .task-meta {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .priority-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 3px 22px 3px 10px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 9px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+
+  .priority-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .priority-select[data-priority="High"] { background-color: var(--high-bg); color: var(--high); }
+  .priority-select[data-priority="Medium"] { background-color: var(--medium-bg); color: var(--medium); }
+  .priority-select[data-priority="Low"] { background-color: var(--low-bg); color: var(--low); }
+
+  li.task.done .priority-select { opacity: 0.7; }
+
+  .checkbox {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    border: 1.5px solid var(--ink-soft);
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    padding: 0;
+  }
+
+  li.task.done .checkbox {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--card-bg);
+  }
+
+  .checkbox svg { width: 12px; height: 12px; display: none; }
+  li.task.done .checkbox svg { display: block; }
+
+  .task-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    padding-top: 1px;
+    background: transparent;
+    border: none;
+    color: var(--ink);
+    font-family: inherit;
+    cursor: text;
+  }
+
+  li.task.done .task-text {
+    text-decoration: line-through;
+    color: var(--done);
+  }
+
+  .delete-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 4px;
+  }
+  .delete-btn:hover { color: var(--danger); }
+
+  .empty {
+    text-align: center;
+    padding: 36px 10px;
+    color: var(--ink-soft);
+    font-size: 13px;
+    border: 1px dashed var(--paper-line);
+    border-radius: 4px;
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--paper-line);
+    padding-top: 14px;
+  }
+
+  footer button {
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    text-decoration: underline;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 0;
+  }
+  footer button:hover { color: var(--accent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    li.task { transition: opacity 0.15s ease; }
+    .checkbox { transition: background 0.12s ease, border-color 0.12s ease; }
+  }
+</style>
+</head>
+<body>
+  <div class="board">
+    <header>
+      <h1>The Ledger</h1>
+      <div class="date" id="today"></div>
+    </header>
+
+    <form class="add-row" id="addForm">
+      <input type="text" id="newTask" placeholder="Add a task…" autocomplete="off" maxlength="200">
+      <button type="submit">Add</button>
+    </form>
+
+    <div class="filters" role="tablist" aria-label="Filter tasks">
+      <button type="button" data-filter="all" class="active">All</button>
+      <button type="button" data-filter="active">To do</button>
+      <button type="button" data-filter="done">Done</button>
+    </div>
+
+    <ul class="tasks" id="taskList"></ul>
+
+    <footer>
+      <span id="countLabel">0 open</span>
+      <button type="button" id="clearDone">Clear done</button>
+    </footer>
+  </div>
+
+<script>
+(function () {
+  var STORAGE_KEY = 'ledger_tasks_v1';
+  var listEl = document.getElementById('taskList');
+  var formEl = document.getElementById('addForm');
+  var inputEl = document.getElementById('newTask');
+  var countEl = document.getElementById('countLabel');
+  var clearBtn = document.getElementById('clearDone');
+  var filterBtns = document.querySelectorAll('.filters button');
+  var currentFilter = 'all';
+  var tasks = [];
+
+  function loadTasks() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Could not read saved tasks', e);
+    }
+    return [];
+  }
+
+  function saveTasks() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    } catch (e) {
+      console.warn('Could not save tasks', e);
+    }
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function setToday() {
+    var el = document.getElementById('today');
+    var d = new Date();
+    var opts = { weekday: 'short', month: 'short', day: 'numeric' };
+    el.textContent = d.toLocaleDateString(undefined, opts);
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+    var visible = tasks.filter(function (t) {
+      if (currentFilter === 'active') return !t.done;
+      if (currentFilter === 'done') return t.done;
+      return true;
+    });
+
+    if (visible.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = tasks.length === 0
+        ? 'Nothing on the list yet. Add your first task above.'
+        : 'No tasks in this view.';
+      listEl.appendChild(empty);
+    } else {
+      visible.forEach(function (t) {
+        var li = document.createElement('li');
+        li.className = 'task' + (t.done ? ' done' : '');
+        li.dataset.id = t.id;
+
+        var row = document.createElement('div');
+        row.className = 'task-row';
+
+        var checkbox = document.createElement('button');
+        checkbox.type = 'button';
+        checkbox.className = 'checkbox';
+        checkbox.setAttribute('aria-label', t.done ? 'Mark as not done' : 'Mark as done');
+        checkbox.innerHTML = '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.2 11.5L13 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        checkbox.addEventListener('click', function () { toggleDone(t.id); });
+
+        var text = document.createElement('div');
+        text.className = 'task-text';
+        text.textContent = t.text;
+        text.contentEditable = 'true';
+        text.spellcheck = false;
+        text.addEventListener('blur', function () {
+          var newText = text.textContent.trim();
+          if (newText && newText !== t.text) {
+            updateText(t.id, newText);
+          } else {
+            text.textContent = t.text;
+          }
+        });
+        text.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); text.blur(); }
+        });
+
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'delete-btn';
+        del.setAttribute('aria-label', 'Delete task');
+        del.textContent = '×';
+        del.addEventListener('click', function () { removeTask(t.id); });
+
+        row.appendChild(checkbox);
+        row.appendChild(text);
+        row.appendChild(del);
+
+        var meta = document.createElement('div');
+        meta.className = 'task-meta';
+
+        var prioritySelect = document.createElement('select');
+        prioritySelect.className = 'priority-select';
+        prioritySelect.setAttribute('aria-label', 'Priority');
+        prioritySelect.dataset.priority = t.priority;
+        ['High', 'Medium', 'Low'].forEach(function (p) {
+          var opt = document.createElement('option');
+          opt.value = p;
+          opt.textContent = p;
+          if (p === t.priority) opt.selected = true;
+          prioritySelect.appendChild(opt);
+        });
+        prioritySelect.addEventListener('change', function () {
+          updatePriority(t.id, prioritySelect.value);
+        });
+
+        meta.appendChild(prioritySelect);
+
+        li.appendChild(row);
+        li.appendChild(meta);
+        listEl.appendChild(li);
+      });
+    }
+
+    var openCount = tasks.filter(function (t) { return !t.done; }).length;
+    countEl.textContent = openCount + ' open';
+  }
+
+  function addTask(text) {
+    tasks.unshift({ id: uid(), text: text, done: false, priority: 'Medium' });
+    saveTasks();
+    render();
+  }
+
+  function toggleDone(id) {
+    var t = tasks.find(function (x) { return x.id === id; });
+    if (t) { t.done = !t.done; saveTasks(); render(); }
+  }
+
+  function updatePriority(id, priority) {
+    var t = tasks.find(function (x) { return x.id === id; });
+    if (t) { t.priority = priority; saveTasks(); render(); }
+  }
+
+  function updateText(id, newText) {
+    var t = tasks.find(function (x) { return x.id === id; });
+    if (t) { t.text = newText; saveTasks(); render(); }
+  }
+
+  function removeTask(id) {
+    tasks = tasks.filter(function (x) { return x.id !== id; });
+    saveTasks();
+    render();
+  }
+
+  formEl.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var val = inputEl.value.trim();
+    if (val) {
+      addTask(val);
+      inputEl.value = '';
+      inputEl.focus();
+    }
+  });
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filterBtns.forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  clearBtn.addEventListener('click', function () {
+    tasks = tasks.filter(function (t) { return !t.done; });
+    saveTasks();
+    render();
+  });
+
+  tasks = loadTasks();
+  tasks.forEach(function (t) { if (!t.priority) t.priority = 'Medium'; });
+  setToday();
+  render();
+})();
+</script>
+</body>
+</html>
