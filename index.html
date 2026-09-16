@@ -181,6 +181,28 @@
     border-color: var(--ink);
   }
 
+  .sort-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .sort-row select {
+    background: var(--card-bg);
+    color: var(--ink);
+    border: 1px solid var(--paper-line);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  .sort-row select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
   ul.tasks {
     list-style: none;
     margin: 0 0 20px;
@@ -312,21 +334,26 @@
   .comment-add {
     display: flex;
     gap: 6px;
+    align-items: flex-end;
   }
 
-  .comment-add input {
+  .comment-add textarea {
     flex: 1;
     min-width: 0;
+    resize: vertical;
+    min-height: 32px;
+    max-height: 140px;
     background: var(--paper);
     border: 1px solid var(--paper-line);
     border-radius: 3px;
     padding: 6px 8px;
     font-family: inherit;
     font-size: 12px;
+    line-height: 1.4;
     color: var(--ink);
   }
 
-  .comment-add input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .comment-add textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .comment-add button {
     background: var(--accent-soft);
@@ -475,6 +502,17 @@
       <button type="button" data-filter="done">Done</button>
     </div>
 
+    <div class="sort-row">
+      <label for="sortSelect">Sort by</label>
+      <select id="sortSelect">
+        <option value="none">Newest first</option>
+        <option value="priority-desc">Priority: High to Low</option>
+        <option value="priority-asc">Priority: Low to High</option>
+        <option value="due-asc">Due date: Soonest first</option>
+        <option value="due-desc">Due date: Latest first</option>
+      </select>
+    </div>
+
     <ul class="tasks" id="taskList"></ul>
 
     <footer>
@@ -492,7 +530,9 @@
   var countEl = document.getElementById('countLabel');
   var clearBtn = document.getElementById('clearDone');
   var filterBtns = document.querySelectorAll('.filters button');
+  var sortSelect = document.getElementById('sortSelect');
   var currentFilter = 'all';
+  var currentSort = 'none';
   var tasks = [];
   var expandedComments = {};
 
@@ -535,6 +575,8 @@
       if (currentFilter === 'done') return t.done;
       return true;
     });
+
+    visible = sortTasks(visible, currentSort);
 
     if (visible.length === 0) {
       var empty = document.createElement('div');
@@ -684,9 +726,9 @@
 
           var addRow = document.createElement('div');
           addRow.className = 'comment-add';
-          var commentInput = document.createElement('input');
-          commentInput.type = 'text';
-          commentInput.placeholder = 'Write a comment…';
+          var commentInput = document.createElement('textarea');
+          commentInput.rows = 1;
+          commentInput.placeholder = 'Write a comment… (Ctrl+Enter to post)';
           commentInput.maxLength = 300;
           var addBtn = document.createElement('button');
           addBtn.type = 'button';
@@ -701,7 +743,10 @@
           }
           addBtn.addEventListener('click', submitComment);
           commentInput.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter') { e.preventDefault(); submitComment(); }
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              submitComment();
+            }
           });
 
           addRow.appendChild(commentInput);
@@ -717,6 +762,34 @@
 
     var openCount = tasks.filter(function (t) { return !t.done; }).length;
     countEl.textContent = openCount + ' open';
+  }
+
+  function sortTasks(list, sortMode) {
+    if (sortMode === 'none') return list;
+
+    var priorityRank = { High: 0, Medium: 1, Low: 2 };
+    var copy = list.slice();
+
+    if (sortMode === 'priority-desc' || sortMode === 'priority-asc') {
+      copy.sort(function (a, b) {
+        var diff = priorityRank[a.priority] - priorityRank[b.priority];
+        return sortMode === 'priority-desc' ? diff : -diff;
+      });
+      return copy;
+    }
+
+    if (sortMode === 'due-asc' || sortMode === 'due-desc') {
+      copy.sort(function (a, b) {
+        if (!a.dueDate && !b.dueDate) return 0;
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        var diff = new Date(a.dueDate) - new Date(b.dueDate);
+        return sortMode === 'due-asc' ? diff : -diff;
+      });
+      return copy;
+    }
+
+    return list;
   }
 
   function addTask(text) {
@@ -807,6 +880,11 @@
   clearBtn.addEventListener('click', function () {
     tasks = tasks.filter(function (t) { return !t.done; });
     saveTasks();
+    render();
+  });
+
+  sortSelect.addEventListener('change', function () {
+    currentSort = sortSelect.value;
     render();
   });
 
