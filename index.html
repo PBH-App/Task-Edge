@@ -550,6 +550,33 @@
     return [];
   }
 
+  var VIEW_KEY = 'ledger_view_v1';
+
+  function saveView() {
+    try {
+      localStorage.setItem(VIEW_KEY, JSON.stringify({ filter: currentFilter, sort: currentSort }));
+    } catch (e) {
+      console.warn('Could not save view', e);
+    }
+  }
+
+  function restoreView() {
+    try {
+      var raw = localStorage.getItem(VIEW_KEY);
+      if (!raw) return;
+      var v = JSON.parse(raw);
+      if (['all', 'active', 'done'].indexOf(v.filter) !== -1) currentFilter = v.filter;
+      var validSorts = ['none', 'priority-desc', 'priority-asc', 'due-asc', 'due-desc'];
+      if (validSorts.indexOf(v.sort) !== -1) currentSort = v.sort;
+    } catch (e) {
+      console.warn('Could not read saved view', e);
+    }
+    filterBtns.forEach(function (b) {
+      b.classList.toggle('active', b.dataset.filter === currentFilter);
+    });
+    sortSelect.value = currentSort;
+  }
+
   function saveTasks() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
@@ -874,6 +901,7 @@
       filterBtns.forEach(function (b) { b.classList.remove('active'); });
       btn.classList.add('active');
       currentFilter = btn.dataset.filter;
+      saveView();
       render();
     });
   });
@@ -886,9 +914,11 @@
 
   sortSelect.addEventListener('change', function () {
     currentSort = sortSelect.value;
+    saveView();
     render();
   });
 
+  restoreView();
   tasks = loadTasks();
   tasks.forEach(function (t) {
     if (!t.priority) t.priority = 'Medium';
